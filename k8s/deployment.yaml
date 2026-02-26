@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: soc-agente-deploy
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: soc-agente
+  template:
+    metadata:
+      labels:
+        app: soc-agente
+    spec:
+      containers:
+      - name: agente-contenedor
+        image: agente-soc:dev     # <-- ETIQUETA FIJA APLICADA
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8080
+        # --- INYECCIÓN DE SECRETOS ---
+        env:
+        - name: IPS_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: ips-token
+              key: token
+        - name: TELEGRAM_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: telegram-credentials
+              key: token
+        - name: TELEGRAM_CHAT_ID
+          valueFrom:
+            secretKeyRef:
+              name: telegram-credentials
+              key: chat_id
+        volumeMounts:
+        - name: logs-del-soc
+          mountPath: /app/logs
+      volumes:
+      - name: logs-del-soc
+        persistentVolumeClaim:
+          claimName: soc-pvc

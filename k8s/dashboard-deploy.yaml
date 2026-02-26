@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: soc-dashboard-deploy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: soc-dashboard
+  template:
+    metadata:
+      labels:
+        app: soc-dashboard
+    spec:
+      containers:
+      - name: dashboard-contenedor
+        image: soc-dashboard:dev    # <-- ETIQUETA FIJA APLICADA
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8081
+        volumeMounts:
+        - name: logs-compartidos
+          mountPath: /app/logs
+          readOnly: true
+      volumes:
+      - name: logs-compartidos
+        persistentVolumeClaim:
+          claimName: soc-pvc
