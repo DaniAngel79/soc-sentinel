@@ -12,6 +12,16 @@ spec:
       labels:
         app: soc-agente
     spec:
+      # --- INICIO DEL INIT CONTAINER (SOLUCIÓN DE PERMISOS) ---
+      initContainers:
+      - name: fix-permisos
+        image: busybox
+        command: ["sh", "-c", "chmod -R 777 /app/logs"]
+        volumeMounts:
+        - name: logs-del-soc
+          mountPath: /app/logs
+      # --- FIN DEL INIT CONTAINER ---
+      
       containers:
       - name: agente-contenedor
         image: agente-soc:dev     # <-- ETIQUETA FIJA APLICADA
