@@ -1,4 +1,6 @@
-tls.crt
-tls.key
+__pycache__/
+*.log
+logs/
+.env
 tls.crt
 tls.key
