@@ -4,30 +4,34 @@ SOC Sentinel es un agente de seguridad activo diseñado para operar dentro de un
 
 ## ⚙️ Arquitectura y Flujo de Trabajo
 
-1. **Sensor Activo (Honeypot):** El Pod del Agente expone un servidor web que monitoriza rutas críticas comunes en escaneos de vulnerabilidades (ej. `/admin`, `/script`).
-2. **Registro Centralizado (PVC):** Los eventos de intrusión se registran en un `PersistentVolumeClaim` con acceso `ReadWriteMany`, aislando los logs del ciclo de vida del contenedor.
-3. **Notificación en Tiempo Real:** Ante un intento de acceso, el agente extrae credenciales de un K8s Secret y consume la API de Telegram para notificar al equipo SOC instantáneamente.
-4. **Mitigación Autónoma (IPS):** El agente mantiene un control de estado. Si una IP de origen supera el umbral de 3 intentos maliciosos, el sistema corta la conexión en la capa de aplicación (HTTP 403) aislando al atacante.
+* **Sensor Activo (Honeypot):** El Pod del Agente expone un servidor web que monitoriza rutas críticas comunes en escaneos de vulnerabilidades (ej. `/admin`, `/script`).
+* **Registro Centralizado (PVC):** Los eventos de intrusión se registran en un `PersistentVolumeClaim`, aislando los logs del ciclo de vida del contenedor para auditoría persistente.
+* **Mitigación Autónoma (IPS):** El sistema implementa un baneo progresivo. Tras superar el umbral de 3 intentos, se corta la conexión en la capa de aplicación (HTTP 403).
+* **Control de Fatiga de Alertas (Alert Fatigue):** Lógica de filtrado que evita el spam a la API de Telegram. Una vez que la IP es bloqueada definitivamente, el tráfico se rechaza de forma silenciosa.
+
+
+## 🔒 DevSecOps & Hardening (Mejoras de Seguridad)
+
+Este proyecto implementa prácticas de endurecimiento de contenedores para evitar que el propio agente sea un vector de ataque:
+
+* **Usuario sin privilegios:** El contenedor no corre como `root`. Utiliza un usuario de sistema con UID alto.
+* **Shell Restringida:** El usuario tiene asignado `/usr/sbin/nologin`, lo que impide ataques de *Reverse Shell* incluso si el código fuera vulnerado.
+* **Init Containers:** Uso de contenedores de inicialización para gestionar permisos de lectura/escritura en volúmenes compartidos de forma segura.
+* **Gestión de Secretos:** Las API Keys y Tokens no están en el código; se inyectan dinámicamente mediante `K8s Secrets`.
 
 ## 🛠️ Stack Tecnológico
 * **Lenguaje:** Python 3 (Librerías nativas: `http.server`, `urllib`)
 * **Contenedores:** Docker
 * **Orquestación:** Kubernetes (Minikube)
-* **Networking & Seguridad:** NetworkPolicies, Ingress, K8s Secrets
-* **Integración:** Telegram Bot API
+* **Seguridad:** NetworkPolicies (Zero Trust), K8s Secrets, RBAC.
 
 ## 📂 Estructura del Proyecto
 ```text
 soc-sentinel/
-├── k8s/                     # Manifiestos de Kubernetes
-│   ├── deployment.yaml      # Despliegue del Agente (IPS)
-│   ├── dashboard-deploy.yaml# Despliegue del Dashboard de visualización
-│   ├── network-policy.yaml  # Reglas de firewall interno (Zero Trust)
-│   ├── service.yaml         # Exposición de puertos
-│   ├── ingress.yaml         # Reglas de enrutamiento y SSL
-│   ├── soc-pvc.yaml         # Reclamación de volumen persistente
-│   └── storage.yaml         # Volumen persistente (HostPath)
-├── agente.py                # Lógica core del IPS y Honeypot
-├── dashboard.py             # Lógica del visor de logs
-├── Dockerfile               # Build de la imagen del agente
-└── Dockerfile.dashboard     # Build de la imagen del dashboard
+├── k8s/                     # Manifiestos de Kubernetes (Deployment, PVC, Ingress)
+│   ├── deployment.yaml      # Configuración del agente con Init Containers
+│   └── ...                  # Otros recursos de red y almacenamiento
+├── agente.py                # Lógica core: Detección, IPS y Telegram
+├── dashboard.py             # Lógica del visor de logs en tiempo real
+├── Dockerfile               # Build endurecido del agente (No-root, No-shell)
+└── Dockerfile.dashboard     # Build del visor de logs
